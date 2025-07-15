@@ -198,28 +198,7 @@
     <div class="firework"></div>
   </div>
   <script>
-window.addEventListener('DOMContentLoaded', function () {
-    const rawData = [
-      {
-        "date": "2023-07-15",
-        "answers": [
-          { "group": "FRUITS", "members": ["Apple", "Banana", "Cherry", "Grape"], "level": 0 },
-          { "group": "COLORS", "members": ["Red", "Blue", "Green", "Yellow"], "level": 1 },
-          { "group": "DOG BREEDS", "members": ["Beagle", "Poodle", "Bulldog", "Labrador"], "level": 2 },
-          { "group": "CAR BRANDS", "members": ["Toyota", "Ford", "BMW", "Honda"], "level": 3 }
-        ]
-      }
-    ];
-
-    let data = {};
-    rawData.forEach(entry => {
-      const groups = [];
-      entry.answers.forEach(ans => {
-        groups[ans.level] = { words: ans.members, name: ans.group };
-      });
-      data[entry.date] = { groups };
-    });
-
+    let data = null;
     let puzzleWords = [];
     let puzzleGroups = [];
     let selected = [];
@@ -232,13 +211,11 @@ window.addEventListener('DOMContentLoaded', function () {
     const hintText = document.getElementById('hint');
     const submitBtn = document.getElementById('submit');
 
-    document.getElementById('refresh').addEventListener('click', () => {
-      generatePuzzle();
-    });
-
-    submitBtn.addEventListener('click', () => {
-      if (!gameOver && selected.length === 4) checkSelection();
-    });
+submitBtn.addEventListener('click', () => {
+  if (!gameOver && selected.length === 4) {
+    checkSelection();
+  }
+});
 
     function showLoader(text) {
       loader.style.display = 'block';
@@ -256,6 +233,29 @@ window.addEventListener('DOMContentLoaded', function () {
         loaderText.textContent = 'Done';
         setTimeout(() => loader.style.display = 'none', 300);
       };
+    }
+
+    function fetchPuzzleData() {
+      const hideLoader = showLoader("Fetching puzzle data...");
+      fetch('https://raw.githubusercontent.com/Eyefyre/NYT-Connections-Answers/main/connections.json')
+        .then(res => res.json())
+        .then(raw => {
+          data = {};
+          raw.forEach(entry => {
+            const groups = [];
+            entry.answers.forEach(ans => {
+              groups[ans.level] = { words: ans.members, name: ans.group };
+            });
+            data[entry.date] = { groups };
+          });
+          document.getElementById('refresh').disabled = false;
+          generatePuzzle();
+          hideLoader();
+        })
+        .catch(err => {
+          alert("Failed to load puzzle data from GitHub.");
+          hideLoader();
+        });
     }
 
     function generatePuzzle() {
@@ -361,9 +361,7 @@ window.addEventListener('DOMContentLoaded', function () {
           gameOver = true;
           submitBtn.disabled = true;
           setTimeout(() => {
-            const retry = confirm(`You've lost all your lives.
-
-Click OK to retry or Cancel to show the answers.`);
+            const retry = confirm(`You've lost all your lives.\n\nClick OK to retry or Cancel to show the answers.`);
             if (retry) {
               generatePuzzle();
             } else {
@@ -390,11 +388,15 @@ Click OK to retry or Cancel to show the answers.`);
     }
 
     function showWinAnimation() {
-      document.getElementById('win-overlay').classList.add('active');
+      const overlay = document.getElementById('win-overlay');
+      overlay.classList.add('active');
+      overlay.addEventListener('click', () => {
+        overlay.classList.remove('active');
+        generatePuzzle();
+      });
     }
 
-    generatePuzzle();
-});
-</script>
+    window.addEventListener('DOMContentLoaded', fetchPuzzleData);
+  </script>
 </body>
 </html>
