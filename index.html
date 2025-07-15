@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Alan's Connections Bonanza</title>
   <style>
-    /* styles unchanged */
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: linear-gradient(to bottom, #fefefe, #e6e6e6);
@@ -75,17 +74,6 @@
     .selected {
       border-color: #000;
       background: #d0eaff;
-    }
-    .wrong {
-      animation: shake 0.4s ease;
-      border-color: red !important;
-    }
-    @keyframes shake {
-      0% { transform: translateX(0); }
-      25% { transform: translateX(-5px); }
-      50% { transform: translateX(5px); }
-      75% { transform: translateX(-5px); }
-      100% { transform: translateX(0); }
     }
     #status {
       margin-top: 20px;
@@ -204,18 +192,25 @@
     let selected = [];
     let lives = 4;
     let gameOver = false;
+    let currentPuzzleSet = null;
 
     const loader = document.getElementById('loader');
     const loaderBar = document.getElementById('loader-bar');
     const loaderText = document.getElementById('loader-text');
     const hintText = document.getElementById('hint');
     const submitBtn = document.getElementById('submit');
+    const refreshBtn = document.getElementById('refresh');
 
-submitBtn.addEventListener('click', () => {
-  if (!gameOver && selected.length === 4) {
-    checkSelection();
-  }
-});
+    submitBtn.addEventListener('click', () => {
+      if (!gameOver && selected.length === 4) {
+        checkSelection();
+      }
+    });
+
+    refreshBtn.addEventListener('click', () => {
+      currentPuzzleSet = null;
+      generatePuzzle();
+    });
 
     function showLoader(text) {
       loader.style.display = 'block';
@@ -248,7 +243,7 @@ submitBtn.addEventListener('click', () => {
             });
             data[entry.date] = { groups };
           });
-          document.getElementById('refresh').disabled = false;
+          refreshBtn.disabled = false;
           generatePuzzle();
           hideLoader();
         })
@@ -258,32 +253,33 @@ submitBtn.addEventListener('click', () => {
         });
     }
 
-    function generatePuzzle() {
+    function generatePuzzle(useSame = false) {
       const hideLoader = showLoader("Generating puzzle...");
       setTimeout(() => {
+        if (!useSame || !currentPuzzleSet) {
+          const levels = [0, 1, 2, 3];
+          const dates = Object.keys(data);
+          currentPuzzleSet = [];
+          for (let level of levels) {
+            let validDays = dates.filter(day => data[day]?.groups?.[level]?.words);
+            const day = validDays[Math.floor(Math.random() * validDays.length)];
+            currentPuzzleSet.push(data[day].groups[level]);
+          }
+        }
+
         selected = [];
         lives = 4;
         gameOver = false;
         checkSelection.previousGuesses = new Set();
         document.getElementById('lives').textContent = lives;
         hintText.textContent = '';
-        puzzleWords = [];
-        puzzleGroups = [];
-        const levels = [0, 1, 2, 3];
-        const dates = Object.keys(data);
-        const chosen = [];
-        for (let level of levels) {
-          let validDays = dates.filter(day => data[day]?.groups?.[level]?.words);
-          const day = validDays[Math.floor(Math.random() * validDays.length)];
-          chosen.push(data[day].groups[level]);
-        }
-        puzzleGroups = chosen;
-        puzzleWords = chosen.flatMap(g => g.words).sort(() => Math.random() - 0.5);
+        puzzleWords = currentPuzzleSet.flatMap(g => g.words).sort(() => Math.random() - 0.5);
+        puzzleGroups = JSON.parse(JSON.stringify(currentPuzzleSet));
         document.getElementById('groups').innerHTML = '';
         renderBoard();
         submitBtn.disabled = false;
         hideLoader();
-      }, 500);
+      }, 300);
     }
 
     function renderBoard() {
@@ -311,6 +307,7 @@ submitBtn.addEventListener('click', () => {
     }
 
     function checkSelection() {
+      selected.forEach(d => d.classList.remove('wrong'));
       const words = selected.map(d => d.textContent);
       let matched = false;
       hintText.textContent = '';
@@ -324,7 +321,6 @@ submitBtn.addEventListener('click', () => {
       if (!checkSelection.previousGuesses) checkSelection.previousGuesses = new Set();
       if (checkSelection.previousGuesses.has(selectedKey)) {
         hintText.textContent = "You've already tried this combination.";
-        selected.forEach(d => d.classList.add('wrong'));
         selected.forEach(d => d.classList.remove('selected'));
         selected = [];
         return;
@@ -354,16 +350,17 @@ submitBtn.addEventListener('click', () => {
         });
 
         hintText.textContent = oneAway ? "You're one away!" : "Incorrect guess.";
-        selected.forEach(d => d.classList.add('wrong'));
         lives--;
         document.getElementById('lives').textContent = lives;
         if (lives <= 0) {
           gameOver = true;
           submitBtn.disabled = true;
           setTimeout(() => {
-            const retry = confirm(`You've lost all your lives.\n\nClick OK to retry or Cancel to show the answers.`);
+            const retry = confirm(`You've lost all your lives.
+
+Click OK to retry or Cancel to show the answers.`);
             if (retry) {
-              generatePuzzle();
+              generatePuzzle(true);
             } else {
               revealAnswers();
             }
@@ -393,10 +390,10 @@ submitBtn.addEventListener('click', () => {
       overlay.addEventListener('click', () => {
         overlay.classList.remove('active');
         generatePuzzle();
-      });
+      }, { once: true });
     }
 
     window.addEventListener('DOMContentLoaded', fetchPuzzleData);
-  </script>
+</script>
 </body>
 </html>
