@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Alan's Connections Bonanza</title>
+  <style>
+    /* styles unchanged */
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(to bottom, #fefefe, #e6e6e6);
+      padding: 20px;
+      text-align: center;
+      color: #333;
+    }
+    h1 {
+      font-size: 2.5em;
+      color: #222;
+      margin-bottom: 10px;
+    }
+    #refresh, #submit {
+      margin: 12px;
+      padding: 12px 24px;
+      border: none;
+      background-color: #4caf50;
+      color: white;
+      font-size: 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    #refresh:hover, #submit:hover {
+      background-color: #45a049;
+    }
+    #board {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      max-width: 500px;
+      margin: 20px auto;
+    }
+    @media (max-width: 600px) {
+      #board {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+      }
+      .word {
+        font-size: 14px;
+        padding: 16px;
+      }
+      #congrats-text {
+        font-size: 2rem;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+      #status {
+        font-size: 18px;
+      }
+    }
+    .word {
+      background: white;
+      padding: 20px;
+      border: 2px solid #ccc;
+      cursor: pointer;
+      user-select: none;
+      border-radius: 10px;
+      transition: transform 0.2s ease, background 0.3s ease;
+      font-size: 16px;
+    }
+    .word:hover {
+      transform: scale(1.05);
+      background-color: #f9f9f9;
+    }
+    .selected {
+      border-color: #000;
+      background: #d0eaff;
+    }
+    .wrong {
+      animation: shake 0.4s ease;
+      border-color: red !important;
+    }
+    @keyframes shake {
+      0% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      50% { transform: translateX(5px); }
+      75% { transform: translateX(-5px); }
+      100% { transform: translateX(0); }
+    }
+    #status {
+      margin-top: 20px;
+      font-size: 20px;
+    }
+    .group {
+      margin: 10px auto;
+      max-width: 600px;
+      background: #fff;
+      border-left: 5px solid #4caf50;
+      padding: 10px;
+      text-align: left;
+      border-radius: 6px;
+    }
+    #loader {
+      margin-top: 10px;
+      height: 40px;
+      width: 80%;
+      max-width: 400px;
+      background: #ddd;
+      border-radius: 10px;
+      margin-left: auto;
+      margin-right: auto;
+      display: none;
+      position: relative;
+    }
+    #loader-bar {
+      height: 100%;
+      background: #4caf50;
+      width: 0%;
+      border-radius: 10px;
+      transition: width 0.3s ease;
+    }
+    #loader-text {
+      position: absolute;
+      width: 100%;
+      top: 0;
+      left: 0;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: #000;
+    }
+    #hint {
+      margin-top: 10px;
+      font-weight: bold;
+      color: orange;
+      font-size: 18px;
+    }
+    #win-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background-color: rgba(0, 0, 0, 0.8);
+      z-index: 9999;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      animation: fadein 1s ease-in-out;
+    }
+    #win-overlay.active {
+      display: flex;
+    }
+    #congrats-text {
+      font-size: 3rem;
+      color: #fff;
+      margin-bottom: 20px;
+      text-shadow: 0 0 10px #fff, 0 0 20px gold, 0 0 30px orange;
+    }
+    .firework {
+      position: absolute;
+      width: 5px;
+      height: 5px;
+      background-color: transparent;
+      border-radius: 50%;
+      box-shadow: 0 0 0 2px white;
+      animation: explode 1s ease-out infinite;
+    }
+    .firework:nth-child(2) { animation-delay: 0.3s; left: 20%; top: 30%; }
+    .firework:nth-child(3) { animation-delay: 0.6s; left: 70%; top: 40%; }
+    .firework:nth-child(4) { animation-delay: 0.9s; left: 50%; top: 70%; }
+    @keyframes explode {
+      0% { box-shadow: 0 0 0 2px white; opacity: 1; transform: scale(1); }
+      100% { box-shadow: 0 0 20px 10px gold; opacity: 0; transform: scale(3); }
+    }
+    @keyframes fadein {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Alan's Connections Bonanza</h1>
+  <div id="loader">
+    <div id="loader-bar"></div>
+    <div id="loader-text">Loading...</div>
+  </div>
+  <div id="board"></div>
+  <button id="submit" disabled>Submit Guess</button>
+  <div id="status">Lives: <span id="lives">4</span></div>
+  <div id="hint"></div>
+  <div id="groups"></div>
+  <button id="refresh" disabled>New Puzzle</button>
+  <div id="win-overlay">
+    <div id="congrats-text">🎉 Congrats! 🎉</div>
+    <div class="firework"></div>
+    <div class="firework"></div>
+    <div class="firework"></div>
+  </div>
+  <script>
+window.addEventListener('DOMContentLoaded', function () {
+    const rawData = [
+      {
+        "date": "2023-07-15",
+        "answers": [
+          { "group": "FRUITS", "members": ["Apple", "Banana", "Cherry", "Grape"], "level": 0 },
+          { "group": "COLORS", "members": ["Red", "Blue", "Green", "Yellow"], "level": 1 },
+          { "group": "DOG BREEDS", "members": ["Beagle", "Poodle", "Bulldog", "Labrador"], "level": 2 },
+          { "group": "CAR BRANDS", "members": ["Toyota", "Ford", "BMW", "Honda"], "level": 3 }
+        ]
+      }
+    ];
+
+    let data = {};
+    rawData.forEach(entry => {
+      const groups = [];
+      entry.answers.forEach(ans => {
+        groups[ans.level] = { words: ans.members, name: ans.group };
+      });
+      data[entry.date] = { groups };
+    });
+
+    let puzzleWords = [];
+    let puzzleGroups = [];
+    let selected = [];
+    let lives = 4;
+    let gameOver = false;
+
+    const loader = document.getElementById('loader');
+    const loaderBar = document.getElementById('loader-bar');
+    const loaderText = document.getElementById('loader-text');
+    const hintText = document.getElementById('hint');
+    const submitBtn = document.getElementById('submit');
+
+    document.getElementById('refresh').addEventListener('click', () => {
+      generatePuzzle();
+    });
+
+    submitBtn.addEventListener('click', () => {
+      if (!gameOver && selected.length === 4) checkSelection();
+    });
+
+    function showLoader(text) {
+      loader.style.display = 'block';
+      loaderBar.style.width = '0%';
+      loaderText.textContent = text;
+      let progress = 0;
+      const interval = setInterval(() => {
+        if (progress >= 90) return;
+        progress += 10;
+        loaderBar.style.width = progress + '%';
+      }, 100);
+      return () => {
+        clearInterval(interval);
+        loaderBar.style.width = '100%';
+        loaderText.textContent = 'Done';
+        setTimeout(() => loader.style.display = 'none', 300);
+      };
+    }
+
+    function generatePuzzle() {
+      const hideLoader = showLoader("Generating puzzle...");
+      setTimeout(() => {
+        selected = [];
+        lives = 4;
+        gameOver = false;
+        checkSelection.previousGuesses = new Set();
+        document.getElementById('lives').textContent = lives;
+        hintText.textContent = '';
+        puzzleWords = [];
+        puzzleGroups = [];
+        const levels = [0, 1, 2, 3];
+        const dates = Object.keys(data);
+        const chosen = [];
+        for (let level of levels) {
+          let validDays = dates.filter(day => data[day]?.groups?.[level]?.words);
+          const day = validDays[Math.floor(Math.random() * validDays.length)];
+          chosen.push(data[day].groups[level]);
+        }
+        puzzleGroups = chosen;
+        puzzleWords = chosen.flatMap(g => g.words).sort(() => Math.random() - 0.5);
+        document.getElementById('groups').innerHTML = '';
+        renderBoard();
+        submitBtn.disabled = false;
+        hideLoader();
+      }, 500);
+    }
+
+    function renderBoard() {
+      const board = document.getElementById('board');
+      board.innerHTML = '';
+      puzzleWords.forEach(word => {
+        const div = document.createElement('div');
+        div.className = 'word';
+        div.textContent = word;
+        div.addEventListener('click', () => handleSelect(div));
+        board.appendChild(div);
+      });
+    }
+
+    function handleSelect(div) {
+      if (gameOver) return;
+      if (div.classList.contains('selected')) {
+        div.classList.remove('selected');
+        selected = selected.filter(d => d !== div);
+      } else if (selected.length < 4) {
+        div.classList.remove('wrong');
+        div.classList.add('selected');
+        selected.push(div);
+      }
+    }
+
+    function checkSelection() {
+      const words = selected.map(d => d.textContent);
+      let matched = false;
+      hintText.textContent = '';
+
+      if (new Set(words).size !== words.length) {
+        hintText.textContent = "You've selected a word more than once.";
+        return;
+      }
+
+      const selectedKey = words.slice().sort().join('|');
+      if (!checkSelection.previousGuesses) checkSelection.previousGuesses = new Set();
+      if (checkSelection.previousGuesses.has(selectedKey)) {
+        hintText.textContent = "You've already tried this combination.";
+        selected.forEach(d => d.classList.add('wrong'));
+        selected.forEach(d => d.classList.remove('selected'));
+        selected = [];
+        return;
+      }
+      checkSelection.previousGuesses.add(selectedKey);
+
+      puzzleGroups.forEach((group, idx) => {
+        if (group.words.length > 0 && arraysEqual(group.words.slice().sort(), words.slice().sort())) {
+          matched = true;
+          document.getElementById('groups').innerHTML += `<div class="group">${['Yellow','Green','Blue','Purple'][idx]}: ${group.words.join(', ')}<br><em>Group: ${group.name}</em></div>`;
+          selected.forEach(d => d.remove());
+          puzzleGroups[idx].words = [];
+
+          const allSolved = puzzleGroups.every(g => g.words.length === 0);
+          if (allSolved) {
+            gameOver = true;
+            submitBtn.disabled = true;
+            showWinAnimation();
+          }
+        }
+      });
+
+      if (!matched) {
+        const oneAway = puzzleGroups.some(group => {
+          if (!group.words || group.words.length !== 4) return false;
+          return words.filter(w => group.words.includes(w)).length === 3;
+        });
+
+        hintText.textContent = oneAway ? "You're one away!" : "Incorrect guess.";
+        selected.forEach(d => d.classList.add('wrong'));
+        lives--;
+        document.getElementById('lives').textContent = lives;
+        if (lives <= 0) {
+          gameOver = true;
+          submitBtn.disabled = true;
+          setTimeout(() => {
+            const retry = confirm(`You've lost all your lives.
+
+Click OK to retry or Cancel to show the answers.`);
+            if (retry) {
+              generatePuzzle();
+            } else {
+              revealAnswers();
+            }
+          }, 300);
+        }
+      }
+
+      selected.forEach(d => d.classList.remove('selected'));
+      selected = [];
+    }
+
+    function arraysEqual(a, b) {
+      return JSON.stringify(a.sort()) === JSON.stringify(b.sort());
+    }
+
+    function revealAnswers() {
+      puzzleGroups.forEach((group, idx) => {
+        if (group.words.length > 0) {
+          document.getElementById('groups').innerHTML += `<div class="group">${['Yellow','Green','Blue','Purple'][idx]} (missed): ${group.words.join(', ')}<br><em>Group: ${group.name}</em></div>`;
+        }
+      });
+    }
+
+    function showWinAnimation() {
+      document.getElementById('win-overlay').classList.add('active');
+    }
+
+    generatePuzzle();
+});
+</script>
+</body>
+</html>
