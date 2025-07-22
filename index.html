@@ -3,397 +3,676 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Alan's Connections Bonanza</title>
+  <title>Connections Bonanza</title>
   <style>
+    :root {
+      --color-bg: #121212;
+      --color-tile: #efefe6;
+      --color-text: #121212;
+      --color-text-light: #ffffff;
+      --color-selected: #5a5a5a;
+      --color-correct-yellow: #f9df6d;
+      --color-correct-green: #a0c35a;
+      --color-correct-blue: #b595e3;
+      --color-correct-purple: #c782e6;
+      --border-radius: 8px;
+    }
+
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(to bottom, #fefefe, #e6e6e6);
-      padding: 20px;
+      background-color: var(--color-bg);
+      color: var(--color-text-light);
       text-align: center;
-      color: #333;
+      padding: 1rem;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      box-sizing: border-box;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
+
     h1 {
-      font-size: 2.5em;
-      color: #222;
-      margin-bottom: 10px;
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
     }
-    #refresh, #submit {
-      margin: 12px;
-      padding: 12px 24px;
-      border: none;
-      background-color: #4caf50;
-      color: white;
-      font-size: 16px;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background-color 0.3s;
+
+    main {
+      width: 100%;
+      max-width: 500px;
+      margin-bottom: 1rem;
     }
-    #refresh:hover, #submit:hover {
-      background-color: #45a049;
+
+    #solved-groups-container {
+      display: grid;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
     }
+
+    .solved-group {
+      padding: 1rem;
+      border-radius: var(--border-radius);
+      text-align: center;
+      opacity: 0;
+      transform: scale(0.95);
+      animation: fadeIn 0.5s ease-out forwards;
+      color: var(--color-text);
+    }
+
+    .solved-group strong {
+      display: block;
+      font-size: 1.1rem;
+      text-transform: uppercase;
+    }
+
     #board {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-      max-width: 500px;
-      margin: 20px auto;
+      gap: 0.5rem;
+      margin-top: 1rem;
     }
-    @media (max-width: 600px) {
-      #board {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
-      }
-      .word {
-        font-size: 14px;
-        padding: 16px;
-      }
-      #congrats-text {
-        font-size: 2rem;
-      }
-      h1 {
-        font-size: 1.8em;
-      }
-      #status {
-        font-size: 18px;
-      }
-    }
+
     .word {
-      background: white;
-      padding: 20px;
-      border: 2px solid #ccc;
+      background: var(--color-tile);
+      color: var(--color-text);
+      padding: 1.25rem 0.5rem;
+      border-radius: var(--border-radius);
       cursor: pointer;
       user-select: none;
-      border-radius: 10px;
-      transition: transform 0.2s ease, background 0.3s ease;
-      font-size: 16px;
-    }
-    .word:hover {
-      transform: scale(1.05);
-      background-color: #f9f9f9;
-    }
-    .selected {
-      border-color: #000;
-      background: #d0eaff;
-    }
-    #status {
-      margin-top: 20px;
-      font-size: 20px;
-    }
-    .group {
-      margin: 10px auto;
-      max-width: 600px;
-      background: #fff;
-      border-left: 5px solid #4caf50;
-      padding: 10px;
-      text-align: left;
-      border-radius: 6px;
-    }
-    #loader {
-      margin-top: 10px;
-      height: 40px;
-      width: 80%;
-      max-width: 400px;
-      background: #ddd;
-      border-radius: 10px;
-      margin-left: auto;
-      margin-right: auto;
-      display: none;
-      position: relative;
-    }
-    #loader-bar {
-      height: 100%;
-      background: #4caf50;
-      width: 0%;
-      border-radius: 10px;
-      transition: width 0.3s ease;
-    }
-    #loader-text {
-      position: absolute;
-      width: 100%;
-      top: 0;
-      left: 0;
-      height: 100%;
+      font-weight: bold;
+      text-transform: uppercase;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: bold;
-      color: #000;
+      min-height: 40px;
+      transition: background-color 0.2s, color 0.2s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
     }
-    #hint {
-      margin-top: 10px;
-      font-weight: bold;
-      color: orange;
-      font-size: 18px;
+
+    .word:active {
+        transform: scale(0.96);
     }
-    #win-overlay {
-      display: none;
+    
+    .word.selected {
+      background: var(--color-selected);
+      color: var(--color-text-light);
+    }
+    
+    .word.solving {
+        animation: flyUp 0.6s ease-in-out forwards;
+    }
+
+    .word.shake {
+        animation: shake 0.5s ease-in-out;
+    }
+
+    #status-container {
+      margin: 1rem 0;
+    }
+    
+    #mistakes-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .mistake-dot {
+        height: 1rem;
+        width: 1rem;
+        border-radius: 50%;
+        background-color: var(--color-selected);
+    }
+
+    .mistake-dot.used {
+        background-color: transparent;
+        border: 1px solid var(--color-selected);
+    }
+
+    #status-message, #hint-display {
+        height: 20px;
+        font-weight: bold;
+    }
+
+    #hint-display {
+        color: var(--color-correct-yellow);
+    }
+
+    footer {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      background-color: var(--color-tile);
+      color: var(--color-text);
+      font-size: 1rem;
+      font-weight: bold;
+      border-radius: 30px;
+      cursor: pointer;
+      transition: background-color 0.2s, transform 0.1s, opacity 0.2s;
+    }
+    
+    button:active {
+        transform: scale(0.95);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    #submit-btn {
+        background-color: var(--color-text);
+        color: var(--color-text-light);
+        display:none; /* Hidden by default, JS will show it */
+    }
+    
+    /* BUG FIX: Changed logic to toggle visibility with an 'active' class */
+    #results-modal {
+      display: none; /* Hidden by default */
       position: fixed;
       inset: 0;
-      background-color: rgba(0, 0, 0, 0.8);
-      z-index: 9999;
+      background-color: rgba(0, 0, 0, 0.85);
+      z-index: 100;
       justify-content: center;
       align-items: center;
-      flex-direction: column;
-      animation: fadein 1s ease-in-out;
+      animation: fadeIn 0.3s ease;
     }
-    #win-overlay.active {
-      display: flex;
+
+    #results-modal.active {
+      display: flex; /* Becomes visible when 'active' class is added */
     }
-    #congrats-text {
-      font-size: 3rem;
-      color: #fff;
-      margin-bottom: 20px;
-      text-shadow: 0 0 10px #fff, 0 0 20px gold, 0 0 30px orange;
+    
+    .modal-content {
+      background-color: var(--color-bg);
+      padding: 2rem;
+      border-radius: var(--border-radius);
+      text-align: center;
+      border: 1px solid var(--color-selected);
+      max-width: 90%;
     }
-    .firework {
-      position: absolute;
-      width: 5px;
-      height: 5px;
-      background-color: transparent;
-      border-radius: 50%;
-      box-shadow: 0 0 0 2px white;
-      animation: explode 1s ease-out infinite;
+    
+    #results-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 30px);
+        gap: 5px;
+        justify-content: center;
+        margin: 1rem 0;
     }
-    .firework:nth-child(2) { animation-delay: 0.3s; left: 20%; top: 30%; }
-    .firework:nth-child(3) { animation-delay: 0.6s; left: 70%; top: 40%; }
-    .firework:nth-child(4) { animation-delay: 0.9s; left: 50%; top: 70%; }
-    @keyframes explode {
-      0% { box-shadow: 0 0 0 2px white; opacity: 1; transform: scale(1); }
-      100% { box-shadow: 0 0 20px 10px gold; opacity: 0; transform: scale(3); }
+
+    .result-square {
+        width: 30px;
+        height: 30px;
+        border-radius: 4px;
     }
-    @keyframes fadein {
-      from { opacity: 0; }
-      to { opacity: 1; }
+
+    @media (max-width: 600px) {
+      body { padding: 0.5rem; }
+      h1 { font-size: 1.5rem; }
+      .word { font-size: 0.8rem; }
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+    
+    @keyframes flyUp {
+      0% { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-200px) scale(0.5); }
     }
   </style>
 </head>
 <body>
-  <h1>Alan's Connections Bonanza</h1>
-  <div id="loader">
-    <div id="loader-bar"></div>
-    <div id="loader-text">Loading...</div>
+  <header>
+    <h1>Connections Bonanza</h1>
+  </header>
+
+  <main>
+    <div id="solved-groups-container"></div>
+    <div id="board"></div>
+  </main>
+
+  <div id="status-container">
+    <div id="mistakes-container">Mistakes Remaining:</div>
+    <p id="status-message"></p>
+    <p id="hint-display"></p>
   </div>
-  <div id="board"></div>
-  <button id="submit" disabled>Submit Guess</button>
-  <div id="status">Lives: <span id="lives">4</span></div>
-  <div id="hint"></div>
-  <div id="groups"></div>
-  <button id="refresh" disabled>New Puzzle</button>
-  <div id="win-overlay">
-    <div id="congrats-text">🎉 Congrats! 🎉</div>
-    <div class="firework"></div>
-    <div class="firework"></div>
-    <div class="firework"></div>
+
+  <footer>
+    <button id="shuffle-btn">Shuffle</button>
+    <button id="deselect-btn">Deselect all</button>
+    <button id="hint-btn" disabled>Get Hint</button>
+    <button id="submit-btn">Submit</button>
+    <button id="restart-btn">Restart Puzzle</button>
+    <button id="new-puzzle-btn" disabled>New Puzzle</button>
+  </footer>
+
+  <div id="results-modal">
+    <div class="modal-content">
+      <h2 id="results-title"></h2>
+      <div id="results-grid"></div>
+      <p id="results-message"></p>
+    </div>
   </div>
+
   <script>
-    let data = null;
+    // DOM Elements
+    const board = document.getElementById('board');
+    const solvedContainer = document.getElementById('solved-groups-container');
+    const mistakesContainer = document.getElementById('mistakes-container');
+    const statusMessage = document.getElementById('status-message');
+    const hintDisplay = document.getElementById('hint-display');
+    
+    const shuffleBtn = document.getElementById('shuffle-btn');
+    const deselectBtn = document.getElementById('deselect-btn');
+    const hintBtn = document.getElementById('hint-btn');
+    const submitBtn = document.getElementById('submit-btn');
+    const restartBtn = document.getElementById('restart-btn');
+    const newPuzzleBtn = document.getElementById('new-puzzle-btn');
+    
+    const resultsModal = document.getElementById('results-modal');
+    const resultsTitle = document.getElementById('results-title');
+    const resultsGrid = document.getElementById('results-grid');
+    const resultsMessage = document.getElementById('results-message');
+
+    // Game Constants
+    const MAX_MISTAKES = 4;
+    const MAX_HINTS = 2;
+    const COLORS = {
+        0: 'var(--color-correct-yellow)',
+        1: 'var(--color-correct-green)',
+        2: 'var(--color-correct-blue)',
+        3: 'var(--color-correct-purple)',
+    };
+
+    // Game State
+    let allPuzzlesData = null;
+    let currentPuzzleSet = null;
     let puzzleWords = [];
     let puzzleGroups = [];
-    let selected = [];
-    let lives = 4;
+    let selectedTiles = [];
+    let mistakes = 0;
+    let hintsRemaining = MAX_HINTS;
     let gameOver = false;
-    let currentPuzzleSet = null;
+    let previousGuesses = new Set();
+    let solvedOrder = [];
+    let nextPuzzleTimer = null;
 
-    const loader = document.getElementById('loader');
-    const loaderBar = document.getElementById('loader-bar');
-    const loaderText = document.getElementById('loader-text');
-    const hintText = document.getElementById('hint');
-    const submitBtn = document.getElementById('submit');
-    const refreshBtn = document.getElementById('refresh');
-
-    submitBtn.addEventListener('click', () => {
-      if (!gameOver && selected.length === 4) {
-        checkSelection();
-      }
-    });
-
-    refreshBtn.addEventListener('click', () => {
-      currentPuzzleSet = null;
-      generatePuzzle();
-    });
-
-    function showLoader(text) {
-      loader.style.display = 'block';
-      loaderBar.style.width = '0%';
-      loaderText.textContent = text;
-      let progress = 0;
-      const interval = setInterval(() => {
-        if (progress >= 90) return;
-        progress += 10;
-        loaderBar.style.width = progress + '%';
-      }, 100);
-      return () => {
-        clearInterval(interval);
-        loaderBar.style.width = '100%';
-        loaderText.textContent = 'Done';
-        setTimeout(() => loader.style.display = 'none', 300);
-      };
-    }
-
-    function fetchPuzzleData() {
-      const hideLoader = showLoader("Fetching puzzle data...");
-      fetch('https://raw.githubusercontent.com/Eyefyre/NYT-Connections-Answers/main/connections.json')
-        .then(res => res.json())
-        .then(raw => {
-          data = {};
-          raw.forEach(entry => {
-            const groups = [];
-            entry.answers.forEach(ans => {
-              groups[ans.level] = { words: ans.members, name: ans.group };
+    /**
+     * Fetches puzzle data from the repository.
+     */
+    async function fetchPuzzleData() {
+        try {
+            const response = await fetch('https://raw.githubusercontent.com/Eyefyre/NYT-Connections-Answers/main/connections.json');
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const rawData = await response.json();
+            
+            allPuzzlesData = {};
+            rawData.forEach(entry => {
+                const groups = [];
+                entry.answers.forEach(ans => {
+                    groups[ans.level] = { words: ans.members, name: ans.group, level: ans.level };
+                });
+                allPuzzlesData[entry.date] = { groups };
             });
-            data[entry.date] = { groups };
-          });
-          refreshBtn.disabled = false;
-          generatePuzzle();
-          hideLoader();
-        })
-        .catch(err => {
-          alert("Failed to load puzzle data from GitHub.");
-          hideLoader();
-        });
+            
+            newPuzzleBtn.disabled = false;
+            generatePuzzle();
+        } catch (error) {
+            console.error("Failed to load puzzle data:", error);
+            statusMessage.textContent = "Failed to load puzzle data. Please refresh.";
+        }
     }
 
+    /**
+     * Generates a new puzzle or restarts the current one.
+     * @param {boolean} useSame - If true, re-uses the current puzzle categories.
+     */
     function generatePuzzle(useSame = false) {
-      const hideLoader = showLoader("Generating puzzle...");
-      setTimeout(() => {
+        if (!allPuzzlesData) return;
+
         if (!useSame || !currentPuzzleSet) {
-          const levels = [0, 1, 2, 3];
-          const dates = Object.keys(data);
-          currentPuzzleSet = [];
-          for (let level of levels) {
-            let validDays = dates.filter(day => data[day]?.groups?.[level]?.words);
-            const day = validDays[Math.floor(Math.random() * validDays.length)];
-            currentPuzzleSet.push(data[day].groups[level]);
-          }
+            const levels = [0, 1, 2, 3];
+            const dates = Object.keys(allPuzzlesData);
+            currentPuzzleSet = [];
+            for (let level of levels) {
+                let validDays = dates.filter(day => allPuzzlesData[day]?.groups?.[level]?.words);
+                const day = validDays[Math.floor(Math.random() * validDays.length)];
+                currentPuzzleSet.push(allPuzzlesData[day].groups[level]);
+            }
         }
 
-        selected = [];
-        lives = 4;
-        gameOver = false;
-        checkSelection.previousGuesses = new Set();
-        document.getElementById('lives').textContent = lives;
-        hintText.textContent = '';
+        resetGameState();
+        
         puzzleWords = currentPuzzleSet.flatMap(g => g.words).sort(() => Math.random() - 0.5);
         puzzleGroups = JSON.parse(JSON.stringify(currentPuzzleSet));
-        document.getElementById('groups').innerHTML = '';
+        
         renderBoard();
-        submitBtn.disabled = false;
-        hideLoader();
-      }, 300);
+        updateUI();
     }
-
-    function renderBoard() {
-      const board = document.getElementById('board');
-      board.innerHTML = '';
-      puzzleWords.forEach(word => {
-        const div = document.createElement('div');
-        div.className = 'word';
-        div.textContent = word;
-        div.addEventListener('click', () => handleSelect(div));
-        board.appendChild(div);
-      });
-    }
-
-    function handleSelect(div) {
-      if (gameOver) return;
-      if (div.classList.contains('selected')) {
-        div.classList.remove('selected');
-        selected = selected.filter(d => d !== div);
-      } else if (selected.length < 4) {
-        div.classList.remove('wrong');
-        div.classList.add('selected');
-        selected.push(div);
-      }
-    }
-
-    function checkSelection() {
-      selected.forEach(d => d.classList.remove('wrong'));
-      const words = selected.map(d => d.textContent);
-      let matched = false;
-      hintText.textContent = '';
-
-      if (new Set(words).size !== words.length) {
-        hintText.textContent = "You've selected a word more than once.";
-        return;
-      }
-
-      const selectedKey = words.slice().sort().join('|');
-      if (!checkSelection.previousGuesses) checkSelection.previousGuesses = new Set();
-      if (checkSelection.previousGuesses.has(selectedKey)) {
-        hintText.textContent = "You've already tried this combination.";
-        selected.forEach(d => d.classList.remove('selected'));
-        selected = [];
-        return;
-      }
-      checkSelection.previousGuesses.add(selectedKey);
-
-      puzzleGroups.forEach((group, idx) => {
-        if (group.words.length > 0 && arraysEqual(group.words.slice().sort(), words.slice().sort())) {
-          matched = true;
-          document.getElementById('groups').innerHTML += `<div class="group">${['Yellow','Green','Blue','Purple'][idx]}: ${group.words.join(', ')}<br><em>Group: ${group.name}</em></div>`;
-          selected.forEach(d => d.remove());
-          puzzleGroups[idx].words = [];
-
-          const allSolved = puzzleGroups.every(g => g.words.length === 0);
-          if (allSolved) {
-            gameOver = true;
-            submitBtn.disabled = true;
-            showWinAnimation();
-          }
+    
+    /**
+     * Resets all game state variables to their initial values for a new game.
+     */
+    function resetGameState() {
+        selectedTiles = [];
+        mistakes = 0;
+        hintsRemaining = MAX_HINTS;
+        gameOver = false;
+        previousGuesses.clear();
+        solvedOrder = [];
+        board.innerHTML = '';
+        solvedContainer.innerHTML = '';
+        hintDisplay.textContent = '';
+        
+        if (nextPuzzleTimer) {
+            clearTimeout(nextPuzzleTimer);
+            nextPuzzleTimer = null;
         }
-      });
+        
+        // BUG FIX: Use classList.remove() to hide the modal
+        resultsModal.classList.remove('active');
+    }
 
-      if (!matched) {
-        const oneAway = puzzleGroups.some(group => {
-          if (!group.words || group.words.length !== 4) return false;
-          return words.filter(w => group.words.includes(w)).length === 3;
+    /**
+     * Renders the current set of words onto the game board.
+     */
+    function renderBoard() {
+        board.innerHTML = '';
+        puzzleWords.forEach(word => {
+            const tile = document.createElement('div');
+            tile.className = 'word';
+            tile.textContent = word;
+            tile.dataset.word = word;
+            tile.addEventListener('click', () => handleTileClick(tile));
+            board.appendChild(tile);
+        });
+    }
+    
+    /**
+     * Handles the logic for selecting and deselecting a word tile.
+     * @param {HTMLElement} tile - The word tile that was clicked.
+     */
+    function handleTileClick(tile) {
+        if (gameOver) return;
+
+        const index = selectedTiles.findIndex(t => t === tile);
+        if (index > -1) {
+            selectedTiles.splice(index, 1);
+            tile.classList.remove('selected');
+        } else if (selectedTiles.length < 4) {
+            selectedTiles.push(tile);
+            tile.classList.add('selected');
+        }
+        updateUI();
+    }
+
+    /**
+     * Checks the user's submission of four words.
+     */
+    function handleSubmit() {
+        if (selectedTiles.length !== 4 || gameOver) return;
+        
+        const selectedWords = selectedTiles.map(t => t.dataset.word).sort();
+        const guessKey = selectedWords.join(',');
+
+        if (previousGuesses.has(guessKey)) {
+            flashMessage("Already guessed!");
+            return;
+        }
+        previousGuesses.add(guessKey);
+
+        const matchedGroup = puzzleGroups.find(group => 
+            arraysEqual(group.words.sort(), selectedWords)
+        );
+
+        if (matchedGroup) {
+            handleCorrectGuess(matchedGroup);
+        } else {
+            handleIncorrectGuess();
+        }
+    }
+    
+    /**
+     * Handles the logic for a correct guess.
+     * @param {object} group - The correctly guessed group object.
+     */
+    function handleCorrectGuess(group) {
+        solvedOrder.push({ level: group.level });
+        
+        const groupIndex = puzzleGroups.findIndex(g => g.name === group.name);
+        puzzleGroups.splice(groupIndex, 1);
+        
+        selectedTiles.forEach(tile => tile.classList.add('solving'));
+        
+        setTimeout(() => {
+            const solvedWords = group.words;
+            puzzleWords = puzzleWords.filter(word => !solvedWords.includes(word));
+            
+            const groupEl = document.createElement('div');
+            groupEl.className = 'solved-group';
+            groupEl.style.backgroundColor = COLORS[group.level];
+            groupEl.innerHTML = `<strong>${group.name}</strong><br>${solvedWords.join(', ')}`;
+            solvedContainer.appendChild(groupEl);
+
+            selectedTiles = [];
+            renderBoard();
+            updateUI();
+
+            if (puzzleGroups.length === 0) {
+                gameOver = true;
+                showResults(true);
+            }
+        }, 600);
+    }
+    
+    /**
+     * Handles the logic for an incorrect guess.
+     */
+    function handleIncorrectGuess() {
+        mistakes++;
+        
+        const isOneAway = puzzleGroups.some(group => {
+            const selectedWords = selectedTiles.map(t => t.dataset.word);
+            const intersection = group.words.filter(w => selectedWords.includes(w));
+            return intersection.length === 3;
         });
 
-        hintText.textContent = oneAway ? "You're one away!" : "Incorrect guess.";
-        lives--;
-        document.getElementById('lives').textContent = lives;
-        if (lives <= 0) {
-          gameOver = true;
-          submitBtn.disabled = true;
-          setTimeout(() => {
-            const retry = confirm(`You've lost all your lives.
+        flashMessage(isOneAway ? "One away..." : "Incorrect");
+        
+        selectedTiles.forEach(tile => tile.classList.add('shake'));
+        setTimeout(() => {
+            selectedTiles.forEach(tile => tile.classList.remove('shake'));
+            deselectAll();
+        }, 500);
 
-Click OK to retry or Cancel to show the answers.`);
-            if (retry) {
-              generatePuzzle(true);
-            } else {
-              revealAnswers();
-            }
-          }, 300);
+        if (mistakes >= MAX_MISTAKES) {
+            gameOver = true;
+            revealAnswers();
+            showResults(false);
         }
-      }
-
-      selected.forEach(d => d.classList.remove('selected'));
-      selected = [];
+        updateUI();
     }
 
-    function arraysEqual(a, b) {
-      return JSON.stringify(a.sort()) === JSON.stringify(b.sort());
-    }
-
+    /**
+     * Stores the remaining unsolved groups when the player loses.
+     */
     function revealAnswers() {
-      puzzleGroups.forEach((group, idx) => {
-        if (group.words.length > 0) {
-          document.getElementById('groups').innerHTML += `<div class="group">${['Yellow','Green','Blue','Purple'][idx]} (missed): ${group.words.join(', ')}<br><em>Group: ${group.name}</em></div>`;
+        puzzleGroups.forEach(group => {
+            solvedOrder.push({ level: group.level, missed: true });
+        });
+    }
+
+    /**
+     * Updates the UI elements like mistake dots and button states.
+     */
+    function updateUI() {
+        mistakesContainer.innerHTML = 'Mistakes Remaining: ';
+        for (let i = 0; i < MAX_MISTAKES; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'mistake-dot';
+            if (i < mistakes) dot.classList.add('used');
+            mistakesContainer.appendChild(dot);
         }
-      });
+
+        submitBtn.style.display = selectedTiles.length === 4 ? 'inline-block' : 'none';
+        
+        hintBtn.textContent = `Get Hint (${hintsRemaining})`;
+        hintBtn.disabled = gameOver || hintsRemaining <= 0 || selectedTiles.length === 0 || selectedTiles.length === 4;
+    }
+    
+    /**
+     * Shows a temporary message to the user.
+     */
+    function flashMessage(msg) {
+        statusMessage.textContent = msg;
+        setTimeout(() => {
+            if (statusMessage.textContent === msg) {
+                statusMessage.textContent = '';
+            }
+        }, 1500);
     }
 
-    function showWinAnimation() {
-      const overlay = document.getElementById('win-overlay');
-      overlay.classList.add('active');
-      overlay.addEventListener('click', () => {
-        overlay.classList.remove('active');
-        generatePuzzle();
-      }, { once: true });
+    /**
+     * Deselects all currently selected tiles.
+     */
+    function deselectAll() {
+        selectedTiles.forEach(tile => tile.classList.remove('selected'));
+        selectedTiles = [];
+        updateUI();
+    }
+    
+    /**
+     * Shuffles the words currently on the board.
+     */
+    function shuffleBoard() {
+        if (gameOver) return;
+        puzzleWords.sort(() => Math.random() - 0.5);
+        renderBoard();
+        deselectAll();
+    }
+    
+    /**
+     * Displays the end-of-game results modal.
+     */
+    function showResults(isWin) {
+        setTimeout(() => {
+            // BUG FIX: Use classList.add() to show the modal
+            resultsModal.classList.add('active');
+            resultsTitle.textContent = isWin ? "Nice!" : "Next Time!";
+            resultsMessage.innerHTML = (isWin ? "You found all the connections!" : "Better luck next time.") + "<br><br><em>Starting next puzzle...</em>";
+            
+            resultsGrid.innerHTML = '';
+            solvedOrder.forEach(solve => {
+                const square = document.createElement('div');
+                square.className = 'result-square';
+                square.style.backgroundColor = COLORS[solve.level];
+                resultsGrid.appendChild(square);
+            });
+
+            if (nextPuzzleTimer) clearTimeout(nextPuzzleTimer);
+
+            nextPuzzleTimer = setTimeout(() => {
+                generatePuzzle(false);
+            }, 4000);
+
+        }, 1000);
     }
 
-    window.addEventListener('DOMContentLoaded', fetchPuzzleData);
-</script>
+    /**
+     * Gets a hint from the Gemini API.
+     */
+    async function getGeminiHint() {
+        if (hintsRemaining <= 0 || selectedTiles.length === 0) return;
+
+        hintsRemaining--;
+        hintBtn.disabled = true;
+        hintBtn.textContent = 'Getting hint...';
+        hintDisplay.textContent = '';
+
+        const selectedWords = selectedTiles.map(t => t.dataset.word);
+        const remainingWords = puzzleWords.filter(w => !selectedWords.includes(w));
+        const solutionInfo = currentPuzzleSet.map(g => `${g.name}: ${g.words.join(', ')}`).join('\n');
+
+        const prompt = `You are a Connections game assistant. The user has selected these words: ${selectedWords.join(', ')}.
+The other words on the board are: ${remainingWords.join(', ')}.
+For your reference, the solutions are:
+${solutionInfo}
+
+Give the user a one-sentence, subtle hint based on their selection.
+- If their selection is part of a correct group, give a hint about the category theme without naming it. (e.g., "You're on the right track with valuable items.")
+- If their selection contains words from multiple categories, gently tell them their selection might not be related. (e.g., "These words don't seem to share a common theme.")
+- Do not reveal the answer, the category name, or which words are correct. Be very subtle.`;
+
+        try {
+            let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+            const payload = { contents: chatHistory };
+            const apiKey = ""; // API key is handled by the environment
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`API request failed with status ${response.status}`);
+            }
+
+            const result = await response.json();
+            
+            if (result.candidates && result.candidates[0]?.content?.parts[0]?.text) {
+                const text = result.candidates[0].content.parts[0].text;
+                hintDisplay.textContent = text;
+            } else {
+                throw new Error("Invalid response structure from API.");
+            }
+        } catch (error) {
+            console.error("Gemini API error:", error);
+            hintDisplay.textContent = "Sorry, couldn't get a hint right now.";
+            hintsRemaining++; // Give the hint back on error
+        } finally {
+            updateUI();
+        }
+    }
+
+    /**
+     * Utility function to compare two sorted arrays for equality.
+     */
+    function arraysEqual(a, b) {
+        if (a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i++) {
+            if (a[i] !== b[i]) return false;
+        }
+        return true;
+    }
+
+    // Event Listeners
+    shuffleBtn.addEventListener('click', shuffleBoard);
+    deselectBtn.addEventListener('click', deselectAll);
+    hintBtn.addEventListener('click', getGeminiHint);
+    submitBtn.addEventListener('click', handleSubmit);
+    restartBtn.addEventListener('click', () => generatePuzzle(true));
+    newPuzzleBtn.addEventListener('click', () => generatePuzzle(false));
+
+    // Initial load
+    document.addEventListener('DOMContentLoaded', fetchPuzzleData);
+  </script>
 </body>
 </html>
