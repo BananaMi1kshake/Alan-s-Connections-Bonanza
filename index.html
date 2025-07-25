@@ -132,13 +132,9 @@
         border: 1px solid var(--color-selected);
     }
 
-    #status-message, #hint-display {
+    #status-message {
         height: 20px;
         font-weight: bold;
-    }
-
-    #hint-display {
-        color: var(--color-correct-yellow);
     }
 
     footer {
@@ -172,12 +168,10 @@
     #submit-btn {
         background-color: var(--color-text);
         color: var(--color-text-light);
-        display:none; /* Hidden by default, JS will show it */
     }
     
-    /* BUG FIX: Changed logic to toggle visibility with an 'active' class */
-    #results-modal {
-      display: none; /* Hidden by default */
+    #results-modal, #game-mode-modal {
+      display: none;
       position: fixed;
       inset: 0;
       background-color: rgba(0, 0, 0, 0.85);
@@ -187,8 +181,8 @@
       animation: fadeIn 0.3s ease;
     }
 
-    #results-modal.active {
-      display: flex; /* Becomes visible when 'active' class is added */
+    #results-modal.active, #game-mode-modal.active {
+      display: flex;
     }
     
     .modal-content {
@@ -213,11 +207,25 @@
         height: 30px;
         border-radius: 4px;
     }
+    
+    #modal-buttons-container, #game-mode-buttons-container {
+        margin-top: 1.5rem;
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+    }
+
+    #game-mode-buttons-container {
+        flex-direction: column;
+    }
 
     @media (max-width: 600px) {
       body { padding: 0.5rem; }
       h1 { font-size: 1.5rem; }
       .word { font-size: 0.8rem; }
+      #modal-buttons-container {
+        flex-direction: column;
+      }
     }
     
     @keyframes fadeIn {
@@ -250,16 +258,14 @@
   <div id="status-container">
     <div id="mistakes-container">Mistakes Remaining:</div>
     <p id="status-message"></p>
-    <p id="hint-display"></p>
   </div>
 
   <footer>
     <button id="shuffle-btn">Shuffle</button>
     <button id="deselect-btn">Deselect all</button>
-    <button id="hint-btn" disabled>Get Hint</button>
-    <button id="submit-btn">Submit</button>
     <button id="restart-btn">Restart Puzzle</button>
     <button id="new-puzzle-btn" disabled>New Puzzle</button>
+    <button id="submit-btn">Submit</button>
   </footer>
 
   <div id="results-modal">
@@ -267,6 +273,19 @@
       <h2 id="results-title"></h2>
       <div id="results-grid"></div>
       <p id="results-message"></p>
+      <div id="modal-buttons-container"></div>
+    </div>
+  </div>
+
+  <div id="game-mode-modal">
+    <div class="modal-content">
+        <h2>Choose a Game Mode</h2>
+        <div id="game-mode-buttons-container">
+            <button data-mode="classic">Classic</button>
+            <button data-mode="old_puzzle">Old Puzzle</button>
+            <button data-mode="all_purple">Oops, All Purple</button>
+            <button data-mode="baby_mode">Baby Mode</button>
+        </div>
     </div>
   </div>
 
@@ -276,11 +295,9 @@
     const solvedContainer = document.getElementById('solved-groups-container');
     const mistakesContainer = document.getElementById('mistakes-container');
     const statusMessage = document.getElementById('status-message');
-    const hintDisplay = document.getElementById('hint-display');
     
     const shuffleBtn = document.getElementById('shuffle-btn');
     const deselectBtn = document.getElementById('deselect-btn');
-    const hintBtn = document.getElementById('hint-btn');
     const submitBtn = document.getElementById('submit-btn');
     const restartBtn = document.getElementById('restart-btn');
     const newPuzzleBtn = document.getElementById('new-puzzle-btn');
@@ -289,10 +306,13 @@
     const resultsTitle = document.getElementById('results-title');
     const resultsGrid = document.getElementById('results-grid');
     const resultsMessage = document.getElementById('results-message');
+    const modalButtonsContainer = document.getElementById('modal-buttons-container');
+
+    const gameModeModal = document.getElementById('game-mode-modal');
+    const gameModeButtonsContainer = document.getElementById('game-mode-buttons-container');
 
     // Game Constants
     const MAX_MISTAKES = 4;
-    const MAX_HINTS = 2;
     const COLORS = {
         0: 'var(--color-correct-yellow)',
         1: 'var(--color-correct-green)',
@@ -307,11 +327,10 @@
     let puzzleGroups = [];
     let selectedTiles = [];
     let mistakes = 0;
-    let hintsRemaining = MAX_HINTS;
     let gameOver = false;
     let previousGuesses = new Set();
     let solvedOrder = [];
-    let nextPuzzleTimer = null;
+    let currentGameMode = 'classic';
 
     /**
      * Fetches puzzle data from the repository.
@@ -332,7 +351,7 @@
             });
             
             newPuzzleBtn.disabled = false;
-            generatePuzzle();
+            generatePuzzle(false, 'classic'); // Start with a classic puzzle
         } catch (error) {
             console.error("Failed to load puzzle data:", error);
             statusMessage.textContent = "Failed to load puzzle data. Please refresh.";
@@ -340,23 +359,52 @@
     }
 
     /**
-     * Generates a new puzzle or restarts the current one.
+     * Generates a new puzzle or restarts the current one based on the selected mode.
      * @param {boolean} useSame - If true, re-uses the current puzzle categories.
+     * @param {string} mode - The game mode to generate ('classic', 'old_puzzle', etc.).
      */
-    function generatePuzzle(useSame = false) {
+    function generatePuzzle(useSame = false, mode = 'classic') {
         if (!allPuzzlesData) return;
-
-        if (!useSame || !currentPuzzleSet) {
-            const levels = [0, 1, 2, 3];
-            const dates = Object.keys(allPuzzlesData);
-            currentPuzzleSet = [];
-            for (let level of levels) {
-                let validDays = dates.filter(day => allPuzzlesData[day]?.groups?.[level]?.words);
-                const day = validDays[Math.floor(Math.random() * validDays.length)];
-                currentPuzzleSet.push(allPuzzlesData[day].groups[level]);
-            }
+        
+        if (!useSame) {
+            currentGameMode = mode;
         }
 
+        // Only generate a new set of categories if it's a new game
+        if (!useSame) {
+            const dates = Object.keys(allPuzzlesData);
+            currentPuzzleSet = [];
+
+            switch (currentGameMode) {
+                case 'old_puzzle':
+                    let randomDate, puzzleFound = false;
+                    while (!puzzleFound) {
+                        randomDate = dates[Math.floor(Math.random() * dates.length)];
+                        const groups = allPuzzlesData[randomDate].groups;
+                        if (groups && groups.length === 4 && groups.every(g => g && g.words)) {
+                            currentPuzzleSet = [...groups];
+                            puzzleFound = true;
+                        }
+                    }
+                    break;
+                case 'all_purple':
+                    generateSpecialModePuzzle(3, dates); // Purple is level 3
+                    break;
+                case 'baby_mode':
+                    generateSpecialModePuzzle(0, dates); // Yellow is level 0
+                    break;
+                case 'classic':
+                default:
+                    const levels = [0, 1, 2, 3];
+                    for (let level of levels) {
+                        let validDays = dates.filter(day => allPuzzlesData[day]?.groups?.[level]?.words);
+                        const day = validDays[Math.floor(Math.random() * validDays.length)];
+                        currentPuzzleSet.push(allPuzzlesData[day].groups[level]);
+                    }
+                    break;
+            }
+        }
+        
         resetGameState();
         
         puzzleWords = currentPuzzleSet.flatMap(g => g.words).sort(() => Math.random() - 0.5);
@@ -365,6 +413,16 @@
         renderBoard();
         updateUI();
     }
+
+    function generateSpecialModePuzzle(level, dates) {
+        while(currentPuzzleSet.length < 4) {
+            const day = dates[Math.floor(Math.random() * dates.length)];
+            const group = allPuzzlesData[day]?.groups?.[level];
+            if (group && group.words && !currentPuzzleSet.some(g => g.name === group.name)) {
+                currentPuzzleSet.push(group);
+            }
+        }
+    }
     
     /**
      * Resets all game state variables to their initial values for a new game.
@@ -372,21 +430,14 @@
     function resetGameState() {
         selectedTiles = [];
         mistakes = 0;
-        hintsRemaining = MAX_HINTS;
         gameOver = false;
         previousGuesses.clear();
         solvedOrder = [];
         board.innerHTML = '';
         solvedContainer.innerHTML = '';
-        hintDisplay.textContent = '';
-        
-        if (nextPuzzleTimer) {
-            clearTimeout(nextPuzzleTimer);
-            nextPuzzleTimer = null;
-        }
-        
-        // BUG FIX: Use classList.remove() to hide the modal
+        modalButtonsContainer.innerHTML = '';
         resultsModal.classList.remove('active');
+        gameModeModal.classList.remove('active');
     }
 
     /**
@@ -406,7 +457,6 @@
     
     /**
      * Handles the logic for selecting and deselecting a word tile.
-     * @param {HTMLElement} tile - The word tile that was clicked.
      */
     function handleTileClick(tile) {
         if (gameOver) return;
@@ -450,7 +500,6 @@
     
     /**
      * Handles the logic for a correct guess.
-     * @param {object} group - The correctly guessed group object.
      */
     function handleCorrectGuess(group) {
         solvedOrder.push({ level: group.level });
@@ -470,9 +519,7 @@
             groupEl.innerHTML = `<strong>${group.name}</strong><br>${solvedWords.join(', ')}`;
             solvedContainer.appendChild(groupEl);
 
-            selectedTiles = [];
-            renderBoard();
-            updateUI();
+            deselectAll();
 
             if (puzzleGroups.length === 0) {
                 gameOver = true;
@@ -496,9 +543,9 @@
         flashMessage(isOneAway ? "One away..." : "Incorrect");
         
         selectedTiles.forEach(tile => tile.classList.add('shake'));
+        
         setTimeout(() => {
             selectedTiles.forEach(tile => tile.classList.remove('shake'));
-            deselectAll();
         }, 500);
 
         if (mistakes >= MAX_MISTAKES) {
@@ -530,10 +577,7 @@
             mistakesContainer.appendChild(dot);
         }
 
-        submitBtn.style.display = selectedTiles.length === 4 ? 'inline-block' : 'none';
-        
-        hintBtn.textContent = `Get Hint (${hintsRemaining})`;
-        hintBtn.disabled = gameOver || hintsRemaining <= 0 || selectedTiles.length === 0 || selectedTiles.length === 4;
+        submitBtn.disabled = selectedTiles.length !== 4;
     }
     
     /**
@@ -572,10 +616,9 @@
      */
     function showResults(isWin) {
         setTimeout(() => {
-            // BUG FIX: Use classList.add() to show the modal
             resultsModal.classList.add('active');
             resultsTitle.textContent = isWin ? "Nice!" : "Next Time!";
-            resultsMessage.innerHTML = (isWin ? "You found all the connections!" : "Better luck next time.") + "<br><br><em>Starting next puzzle...</em>";
+            resultsMessage.textContent = isWin ? "You found all the connections!" : "Better luck next time.";
             
             resultsGrid.innerHTML = '';
             solvedOrder.forEach(solve => {
@@ -585,71 +628,26 @@
                 resultsGrid.appendChild(square);
             });
 
-            if (nextPuzzleTimer) clearTimeout(nextPuzzleTimer);
+            modalButtonsContainer.innerHTML = '';
 
-            nextPuzzleTimer = setTimeout(() => {
-                generatePuzzle(false);
-            }, 4000);
+            if (isWin) {
+                const newPuzzleBtnModal = document.createElement('button');
+                newPuzzleBtnModal.textContent = 'New Puzzle';
+                newPuzzleBtnModal.addEventListener('click', () => gameModeModal.classList.add('active'));
+                modalButtonsContainer.appendChild(newPuzzleBtnModal);
+            } else {
+                const tryAgainBtn = document.createElement('button');
+                tryAgainBtn.textContent = 'Try Again';
+                tryAgainBtn.addEventListener('click', () => generatePuzzle(true, currentGameMode));
+                modalButtonsContainer.appendChild(tryAgainBtn);
+
+                const newPuzzleBtnModal = document.createElement('button');
+                newPuzzleBtnModal.textContent = 'New Puzzle';
+                newPuzzleBtnModal.addEventListener('click', () => gameModeModal.classList.add('active'));
+                modalButtonsContainer.appendChild(newPuzzleBtnModal);
+            }
 
         }, 1000);
-    }
-
-    /**
-     * Gets a hint from the Gemini API.
-     */
-    async function getGeminiHint() {
-        if (hintsRemaining <= 0 || selectedTiles.length === 0) return;
-
-        hintsRemaining--;
-        hintBtn.disabled = true;
-        hintBtn.textContent = 'Getting hint...';
-        hintDisplay.textContent = '';
-
-        const selectedWords = selectedTiles.map(t => t.dataset.word);
-        const remainingWords = puzzleWords.filter(w => !selectedWords.includes(w));
-        const solutionInfo = currentPuzzleSet.map(g => `${g.name}: ${g.words.join(', ')}`).join('\n');
-
-        const prompt = `You are a Connections game assistant. The user has selected these words: ${selectedWords.join(', ')}.
-The other words on the board are: ${remainingWords.join(', ')}.
-For your reference, the solutions are:
-${solutionInfo}
-
-Give the user a one-sentence, subtle hint based on their selection.
-- If their selection is part of a correct group, give a hint about the category theme without naming it. (e.g., "You're on the right track with valuable items.")
-- If their selection contains words from multiple categories, gently tell them their selection might not be related. (e.g., "These words don't seem to share a common theme.")
-- Do not reveal the answer, the category name, or which words are correct. Be very subtle.`;
-
-        try {
-            let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
-            const payload = { contents: chatHistory };
-            const apiKey = ""; // API key is handled by the environment
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-            
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) {
-                throw new Error(`API request failed with status ${response.status}`);
-            }
-
-            const result = await response.json();
-            
-            if (result.candidates && result.candidates[0]?.content?.parts[0]?.text) {
-                const text = result.candidates[0].content.parts[0].text;
-                hintDisplay.textContent = text;
-            } else {
-                throw new Error("Invalid response structure from API.");
-            }
-        } catch (error) {
-            console.error("Gemini API error:", error);
-            hintDisplay.textContent = "Sorry, couldn't get a hint right now.";
-            hintsRemaining++; // Give the hint back on error
-        } finally {
-            updateUI();
-        }
     }
 
     /**
@@ -666,10 +664,16 @@ Give the user a one-sentence, subtle hint based on their selection.
     // Event Listeners
     shuffleBtn.addEventListener('click', shuffleBoard);
     deselectBtn.addEventListener('click', deselectAll);
-    hintBtn.addEventListener('click', getGeminiHint);
     submitBtn.addEventListener('click', handleSubmit);
-    restartBtn.addEventListener('click', () => generatePuzzle(true));
-    newPuzzleBtn.addEventListener('click', () => generatePuzzle(false));
+    restartBtn.addEventListener('click', () => generatePuzzle(true, currentGameMode));
+    newPuzzleBtn.addEventListener('click', () => gameModeModal.classList.add('active'));
+
+    gameModeButtonsContainer.addEventListener('click', (e) => {
+        if (e.target.tagName === 'BUTTON') {
+            const mode = e.target.dataset.mode;
+            generatePuzzle(false, mode);
+        }
+    });
 
     // Initial load
     document.addEventListener('DOMContentLoaded', fetchPuzzleData);
